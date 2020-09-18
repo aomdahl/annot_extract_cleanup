@@ -1,35 +1,46 @@
+#!/usr/bin/env Rscript
+args = commandArgs(trailingOnly=TRUE)
 library(tidyr)
 library(data.table)
 library(readr)
 library(dplyr)
 library(stringr)
+library(Xmisc)
 
+parser <- ArgumentParser$new()
+parser$add_description("Script that cleans up input annotation file by removing high missingness columns, removing columns with no variance, and spliting into numeric and non-numeric annotations")
+parser$add_argument("--input_annots", type = 'character', help = "File containing annotations in a tsv.")
+parser$add_argument("--output", type = "character", help = "Output file path and handle (i.e. /this/location/filename")
+parser$add_argument("--impute", type = "logical", help = "If you would like to impute missing data", default =F)
+parser$add_argument("--na_thresh", type = "numeric", help = "Specify a threshold of % NAs for dropping an annotation column. Default is 0.1", default = 0.1)
+parser$add_argument('--help',type='logical',action='store_true',help='Print the help page')
+parser$helpme()
+args <- parser$get_args()
 
-output_dir =  ""
-annot_names <- scan("/work-zfs/abattle4/ashton/prs_dev/scratch/annotation_curation/redoing_annots_may/full_annotations_list/header.txt", what = character())
-max_annots <- fread("/work-zfs/abattle4/ashton/prs_dev/scratch/annotation_curation/redoing_annots_may/full_annotations_list/all_annotations.250-kb-win_0.5_r2.tsv")
-colnames(max_annots) <- annot_names
-indx <- grepl('.na', annot_names) #Special ones imputed with uniqe cases, to be done separately
-max_annots <- max_annots[,!indx, with = F]
-print("Annotations read in")
+output_dir =  args$output
+max_annots <- fread(args$input_annots)
+impute <- args$impute
+threshold <- args$na_thresh
 
+print("Annotations read in of size:")
+print(paste(dim(max_annots)[1], dim(max_annots)[2]))
 #Helper functions
-clearMissing <- function(dat_in)
+#Get rid of columns with >10% NAs, and any columns where all values are the same.
+clearMissing <- function(dat_in, na_thresh)
 {
-  remove_cols <- apply(dat_in, 2, function(col)sum(is.na(col))/length(col)) <= 0.3
-  dat_in <- dat_in[,remove_cols, with = F]
-  #Remove columns with no variance
-  #Or here, keep them if the largest and smallest values are different
-  remove_cols <- apply(dat_in, 2, function(col) max(col, na.rm = T) != min(col, na.rm = T))
-  dat_in <- dat_in[,remove_cols, with = F]
-  dat_in
+  keep_cols <- apply(dat_in, 2, function(col) (sum(is.na(col))/length(col)) < na_thresh)
+  t <- dat_in[,keep_cols, with = F]
+
+#Or here, keep them if the largest and smallest values are different
+  keep_cols <- apply(t, 2, function(col) max(col, na.rm = T) != min(col, na.rm = T))
+  t[,keep_cols, with = F]
 }
 
 #Return it sorted by 
 selectNumeric <- function(dat_in)
 {
   #note that there may be some others in there that look numeric but we don't want, like 
-  dat_in %>% arrange(F_ID) %>% select(-Chr, -Pos, -Ref, -Alt, -SNP) %>% select_if(is.numeric)
+  dat_in %>% arrange(F_ID) %>% select_if(is.numeric)
 }
 selectLabels <- function(dat_in)
 {
@@ -42,13 +53,37 @@ varClear <- function(tab)
 {
   zv <- names(which(apply(tab, 2, var) == 0))
   tab %>% select(-zv)
+#alternative
+    #Remove columns with no variance
 }
 
-max_annots <- clearMissing(max_annots) %>% drop_na() #the
-numeric_annots <- selectNumeric(max_annots)
-numeric_annots <- varClear(numeric_annots)
-label_annots <- selectLabels(max_annots)
-write_tsv(numeric_annots, "./cleaned_up_numeric_annotations.tsv") 
-write_tsv(label_annots, "./cleaned-up_annot_labels.tsv")
-print("Annotations cleaned up (removed missing,0 variance, etc.")
 
+print("Removing features with high missingness and variants with NAs")
+f_annots <- clearMissing(max_annots, threshold) 
+#How many NAs per column?
+#missing_count <- apply(t, 2, function(x) sum(is.na(x)))/5455
+if (impute)
+{
+        #Some imputetation scheme.
+        print("Do nothing yet.")
+}else
+{
+   f_annots <- drop_na(f_annots)
+}
+print("New size of data.")
+print(paste(dim(f_annots)[1], dim(f_annots)[2]))
+dropped <- names(max_annots)[!(names(max_annots) %in% names(f_annots))]
+prop_nas <- apply(max_annots[, ..dropped], 2, function(x) sum(is.na(x)))/nrow(max_annots)
+dropped <- data.frame("dropped_annots" = dropped, "proportion_of_na" = prop_nas)
+
+
+numeric_annots <- selectNumeric(f_annots)
+numeric_annots <- varClear(numeric_annots)
+label_annots <- selectLabels(f_annots)
+write_tsv(numeric_annots, paste0(output_dir, "_numeric_annotations.tsv"))
+write_tsv(label_annots, paste0(output_dir, "_annotation_labels.tsv"))
+
+write_tsv(dropped, paste0(output_dir, "_removed_annots.tsv"))
+print(paste0("Dropped annotations written out to ", output_dir, "_removed_annots.tsv"))
+#print("Dropped variants written out to ", output_dir, "_removed_vars.tsv")
+print("Annotations cleaned up and split into numeric/text ones. (removed missing, removed columns with 0 variance, etc.")
