@@ -88,8 +88,10 @@ highCorClear <- function(annots, drop_thresh, outdir)
     return(annots %>% select(-final_drops))
 
 }
-print("Removing features with high missingness and variants with NAs")
+print("Removing features with high missingness and no variance")
 f_annots <- clearMissing(max_annots, threshold) 
+print("New size of data after removing columns with high missingness and with no variance")
+print(paste(dim(f_annots)[1], dim(f_annots)[2]))
 #How many NAs per column?
 #missing_count <- apply(t, 2, function(x) sum(is.na(x)))/5455
 if (impute)
@@ -109,7 +111,7 @@ prop_nas <- apply(max_annots[, ..dropped], 2, function(x) sum(is.na(x)))/nrow(ma
 dropped <- data.frame("dropped_annots" = dropped, "proportion_of_na" = prop_nas)
 
 
-numeric_annots <- selectNumeric(f_annots)
+numeric_annots <- selectNumeric(f_annots) %>% select(-Pos, -Chr)
 
 numeric_annots <- varClear(numeric_annots) %>% highCorClear(., args$r2_thresh, args$output)
 label_annots <- selectLabels(f_annots)
