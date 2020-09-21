@@ -46,11 +46,16 @@ sing_val_d <- svds(as.matrix(annots_data), args$num_svs)
 pcs <- data.frame(sing_val_d$u)
 col_names <- paste0("PC", 1:args$num_svs)
   names(pcs) <- col_names
+#pcs_v <- data.frame(sing_val_d$v)
 
 if (args$pca_only)
 {
-    write_tsv(pcs, args$output)
-    print("PCs written to output. Program will terminate.")
+    write_tsv(pcs, paste0(args$output, "_pcs.tsv"))
+    pve <- (sing_val_d$d)^2/(sum((sing_val_d$d)^2))
+    png(paste0(args$output, "_annots_pve.png"))
+    plot(pve, col = "deepskyblue", ylab = "Percent Variance Explained", xlab = "PC", pch = 19)
+    dev.off()
+    print("PCs written to output and PVE plot saved. Program will terminate.")
     quit()
 }
 
