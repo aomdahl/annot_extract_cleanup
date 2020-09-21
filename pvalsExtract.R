@@ -46,18 +46,9 @@ sing_val_d <- svds(as.matrix(annots_data), args$num_svs)
 pcs <- data.frame(sing_val_d$u)
 col_names <- paste0("PC", 1:args$num_svs)
   names(pcs) <- col_names
-#pcs_v <- data.frame(sing_val_d$v)
 
 if (args$pca_only)
 {
-    #Comparison method.
-    #pca_ <- prcomp(annots_data, scale. = F, center = F, rank. = args$num_svs)
-    #conf_ <- data.frame(pca_$x)
-    #prcomp_v_u <- data.frame(cor(conf_, pcs))
-    #write_tsv(prcomp_v_u, paste0(args$output, "_prcomp_vs_u"))
-    #write_tsv(conf_, paste0(args$output, "_prcomp"))
-    #write_tsv(pcs, paste0(args$output, "_rspectra"))
-    #write_tsv(pcs_v, paste0(args$output, "_Vrspectra"))
     write_tsv(pcs, args$output)
     print("PCs written to output. Program will terminate.")
     quit()
