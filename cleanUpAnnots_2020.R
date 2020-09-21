@@ -12,6 +12,7 @@ parser$add_description("Script that cleans up input annotation file by removing 
 parser$add_argument("--input_annots", type = 'character', help = "File containing annotations in a tsv.")
 parser$add_argument("--output", type = "character", help = "Output file path and handle (i.e. /this/location/filename")
 parser$add_argument("--impute", type = "logical", help = "If you would like to impute missing data", default =F)
+parser$add_argument("--r2_thresh", type = "numeric", help = "Specify an R2 threshold for annotation similarity. If 2 features with R2 above this threshold exist, one will be dropped based on the order it appears in the list. The default is R2 = 0.95", default = 0.95)
 parser$add_argument("--na_thresh", type = "numeric", help = "Specify a threshold of % NAs for dropping an annotation column. Default is 0.1", default = 0.1)
 parser$add_argument('--help',type='logical',action='store_true',help='Print the help page')
 parser$helpme()
@@ -58,6 +59,35 @@ varClear <- function(tab)
 }
 
 
+#Remove annotations that are highly correlated (corr > 0.95)
+highCorClear <- function(annots, drop_thresh, outdir)
+{
+    r2 <- cor(annots)^2
+    name_list <- names(annots)
+    dropped_names <- c()
+    drop_sto <- c()
+    for ( i in 1:length(name_list))
+    {
+      if (!is.na(name_list[i]))
+      {
+        rem <- which(r2[,i] > drop_thresh & r2[,i] < 1)
+        if(length(rem) > 0)
+        {
+          name_list[rem] <- NA
+        dropped_names <- c(dropped_names, names(rem))
+        drop_sto <- c(drop_sto, paste("Dropped", names(rem), "kept", name_list[i]))
+        }
+          
+      }
+    }
+    final_drops <- unique(dropped_names)
+    #Write out the drops
+    sink(paste0(outdir, "_dropped_features.txt"))
+    print(drop_sto)
+    sink()
+    return(annots %>% select(-final_drops))
+
+}
 print("Removing features with high missingness and variants with NAs")
 f_annots <- clearMissing(max_annots, threshold) 
 #How many NAs per column?
@@ -70,7 +100,9 @@ if (impute)
 {
    f_annots <- drop_na(f_annots)
 }
-print("New size of data.")
+
+#Data for features dropped because of NAs
+print("New size of data after dropping NAs.")
 print(paste(dim(f_annots)[1], dim(f_annots)[2]))
 dropped <- names(max_annots)[!(names(max_annots) %in% names(f_annots))]
 prop_nas <- apply(max_annots[, ..dropped], 2, function(x) sum(is.na(x)))/nrow(max_annots)
@@ -78,7 +110,8 @@ dropped <- data.frame("dropped_annots" = dropped, "proportion_of_na" = prop_nas)
 
 
 numeric_annots <- selectNumeric(f_annots)
-numeric_annots <- varClear(numeric_annots)
+
+numeric_annots <- varClear(numeric_annots) %>% highCorClear(., args$r2_thresh, args$output)
 label_annots <- selectLabels(f_annots)
 write_tsv(numeric_annots, paste0(output_dir, "_numeric_annotations.tsv"))
 write_tsv(label_annots, paste0(output_dir, "_annotation_labels.tsv"))
@@ -86,4 +119,4 @@ write_tsv(label_annots, paste0(output_dir, "_annotation_labels.tsv"))
 write_tsv(dropped, paste0(output_dir, "_removed_annots.tsv"))
 print(paste0("Dropped annotations written out to ", output_dir, "_removed_annots.tsv"))
 #print("Dropped variants written out to ", output_dir, "_removed_vars.tsv")
-print("Annotations cleaned up and split into numeric/text ones. (removed missing, removed columns with 0 variance, etc.")
+print("Annotations cleaned up and split into numeric/text ones. (removed missing, removed columns with 0 variance, removed highly correlated annotations)")

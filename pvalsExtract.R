@@ -1,15 +1,24 @@
 #!/usr/bin/env Rscript
-args = commandArgs(trailingOnly=TRUE)
-if(length(args) < 3)
-{
-  print("Please provide arguments: pcs_rdata_file, true_annotations_data, output_file")
-  stop()
-}
+
 library(data.table)
 library(tidyr)
 library(readr)
 library(stats)
 library(stringr)
+library(Xmisc)
+library(RSpectra)
+
+parser <- ArgumentParser$new()
+parser$add_description("Script for calculating p-values based on simulated annotation data. Also calculates PCs for annotation data.")
+parser$add_argument("--input_annots", type = 'character', help = "File containing annotations in a tsv.")
+parser$add_argument("--output", type = 'character', help = "Path and name for output file.")
+parser$add_argument("--sim_data", type = "character", help = "Path to simluation results from other script, .RData file.")
+parser$add_argument("--pca_only", type = "logical", help = "specify to just return PC data from annotation inputs.", default =F)
+parser$add_argument("--num_svs", type = "numeric", help = "Specify the number of SVs to include in each run. Default is 100", default = 100)
+parser$add_argument('--help',type='logical',action='store_true',help='Print the help page')
+parser$helpme()
+args <- parser$get_args()
+
 getPC <- function(df, pc_num)
 {
   return(df[pc_num,])
@@ -17,7 +26,7 @@ getPC <- function(df, pc_num)
 
 loadSims <- function(sims_list)
 {
-   simdat <- str_split_fixed(sims_list, ",", n = Inf) 
+   simdat <- str_split_fixed(sims_list, ",", n = Inf)
     base <- load(simdat[1])
     for (i in 2:length(simdat))
     {
@@ -28,12 +37,35 @@ loadSims <- function(sims_list)
 }
 
 
-print("Loading in simulation data...")
-load(args[1]) #pcs_list_
 print("Reading in annotation data.")
-annots_data <- fread(args[2])
+annots_data <- fread(args$input_annots) %>% scale()
 print("Calculating annotation PCs now...")
-pca_ <- prcomp(annots_data, scale. = T, center = T, rank. = 100)
+#Do this with Rspectra.
+
+sing_val_d <- svds(as.matrix(annots_data), args$num_svs)
+pcs <- data.frame(sing_val_d$u)
+col_names <- paste0("PC", 1:args$num_svs)
+  names(pcs) <- col_names
+#pcs_v <- data.frame(sing_val_d$v)
+
+if (args$pca_only)
+{
+    #Comparison method.
+    #pca_ <- prcomp(annots_data, scale. = F, center = F, rank. = args$num_svs)
+    #conf_ <- data.frame(pca_$x)
+    #prcomp_v_u <- data.frame(cor(conf_, pcs))
+    #write_tsv(prcomp_v_u, paste0(args$output, "_prcomp_vs_u"))
+    #write_tsv(conf_, paste0(args$output, "_prcomp"))
+    #write_tsv(pcs, paste0(args$output, "_rspectra"))
+    #write_tsv(pcs_v, paste0(args$output, "_Vrspectra"))
+    write_tsv(pcs, args$output)
+    print("PCs written to output. Program will terminate.")
+    quit()
+}
+
+print("Loading in simulation data...")
+load(args$sim_data)
+
 print("Calculating PC correlation with annotations...")
 true_pcs <- data.frame(cor(data.frame(pca_$x), annots_data))
 print("Correlation calculation complete")
@@ -53,7 +85,7 @@ for(i in 1:npcs)
   sims_squared <- data.frame(apply(all_of_one_pc, 2, function(x) unlist(x)^2))
   true_squared <- true_pc*true_pc
   true_squared <- rbind(true_squared, true_squared[rep(1,nsim-1),])
-  significance_sq <- colSums(sims_squared >= true_squared)/nsim #how often is a permuted one greater than the true one?
+significance_sq <- colSums(sims_squared >= true_squared)/nsim #how often is a permuted one greater than the true one?
   pvals[i,] = significance_sq
   if(i %% (npcs*0.1) == 0) { print(i)}
 }
@@ -61,6 +93,6 @@ PC <- paste0("PC", 1:npcs)
 pvals_ <- data.frame(pvals)
 names(pvals_) <- names(true_pc)
 pvals_ <- cbind(PC, pvals_)
-write_tsv(pvals_, args[3])
+write_tsv(pvals_, args$output)
 
 
