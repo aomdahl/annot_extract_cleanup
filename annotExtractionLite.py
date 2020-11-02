@@ -10,10 +10,8 @@ def whichCol(file, annot):
         for line in istream:
             line = line.strip()
             if line == annot:
-                print("Found it!",i)
                 return i
             else:
-                print(line)
                 i+=1
     if i == 2:
         tab = line.split()
@@ -27,6 +25,7 @@ parser.add_argument("--search", help = "Specify the list of snps you'd like sear
 parser.add_argument("--output", help = "Specify where to write the output")
 parser.add_argument("--database", help = "Specify if you want LDSC annots (for CADD, use  /work-zfs/abattle4/lab_data/genomic_annotation_data/hg19/cadd_annotations/CADD-scripts-master/src/scripts/extract_scored.py", default = "LDSC")
 parser.add_argument("--annot", help = "Specify which annotation you want to pull out")
+parser.add_argument("--split_metric", help = "Specify how you want to split the annotations", default = "irnt", choices = {"irnt", "mean", "median"})
 args = parser.parse_args()
 
 if args.database == "LDSC": header = "/work-zfs/abattle4/lab_data/genomic_annotation_data/hg19/ldsc_annotations/baselineLF_v2.2.UKB/annots/head.tmp"
@@ -49,21 +48,46 @@ if args.database == "DANN":
     search_db = "/work-zfs/abattle4/lab_data/genomic_annotation_data/hg19/DANN_whole_genome_SNVs_hg19.tsv"
 if args.database == "LDSC":
     match_dex = 2
-    search_db = "/work-zfs/abattle4/lab_data/genomic_annotation_data/hg19/ldsc_annotations/baselineLF_v2.2.UKB/annots/baselineLF." + str(args.chr) + ".annot"
+    search_db = "/work-zfs/abattle4/lab_data/genomic_annotation_data/hg19/ldsc_annotations/baselineLF_v2.2.UKB/annots/baselineLF.1.annot"
 if args.database == "genocanyon":
     search_db = "/work-zfs/abattle4/lab_data/genomic_annotation_data/hg19/genocanyon_annotations/GenoCanyon_Chr" + str(args.chr) + "_hg19/"
 
 
 i = whichCol(header, args.annot)
 if args.database == "CADD":
-  command = """awk '(FNR == NR) {arr[$1];next} ($2":"$3":"$4":"$5 in arr) {print $2":"$3":"$4":"$5"\t" $ """ + str(i) + "}' " + args.search + " " + search_db + " > " + args.output
+  command = """awk '(FNR == NR) {arr[$1];next} ($2":"$3":"$4":"$5 in arr) {print $2":"$3":"$4":"$5"\t" $ """ + str(i) + "}' " + args.search + " " + search_db + " > " + args.output + "_extract_list.tsv"
   check_call(command, shell = True)
-elif args.database == "LDSC:":
+elif args.database == "LDSC":
   print("Warning- there are likely multiple columns for many annotations in LDSC (low vs high freq).")
   for filename in os.listdir("/work-zfs/abattle4/lab_data/genomic_annotation_data/hg19/ldsc_annotations/baselineLF_v2.2.UKB/annots"):
     if filename.endswith(".annot"):
       f_name = "/work-zfs/abattle4/lab_data/genomic_annotation_data/hg19/ldsc_annotations/baselineLF_v2.2.UKB/annots/" + filename
-      command = """awk '(FNR == NR) {arr[$1];next} ($3 in arr) {print $3"\t" $ """ + str(i) + "}' " + args.search + " " + f_name + " >> " + args.output
+      command = """awk '(FNR == NR) {arr[$1];next} ($3 in arr) {print $3"\t" $ """ + str(i) + "}' " + args.search + " " + f_name + " >> " + args.output + "_extract_list.tsv"
       check_call(command, shell = True)
+      #Get the median value
 else:
   print("We have not implemented this for other databases, sorry.")
+
+#Now that you have extracted the values, read them in and split them up the right way:
+import pandas as pd
+import numpy as np
+import scipy.stats
+df = pd.read_csv(str(args.output) + "_extract_list.tsv", sep = '\t', header = None)
+if args.split_metric == "irnt": #following procedure recommended by beassely et all 2009 
+    from scipy.stats import norm
+    """
+    z_scores = scipy.stats.zscore(df[1])
+    """
+    c=3.0/8.0
+    rank = df[1].rank()
+    p = (rank-c)/(len(rank) +1 - (2*c))
+    z_scores = norm.ppf(p)
+    high = z_scores > 1 #one sd above
+    low = z_scores < -1 #one sd beneath
+    middle = ((z_scores < 1) & (z_scores > -1))  
+     
+#Now, we need to write these lists out: a high, a low, a middle, and a full
+df.iloc[high,0].to_csv(args.output + "_high_annot.txt", sep='\t', index=False, header = False)
+df.iloc[low,0].to_csv(args.output + "_low_annot.txt", sep='\t', index=False, header = False)
+df.iloc[middle,0].to_csv(args.output + "_middle_annot.txt", sep='\t', index=False, header = False)
+
