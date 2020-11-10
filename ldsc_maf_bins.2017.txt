@@ -1,0 +1,11 @@
+bin	lower_1000G	upper_1000G	lower_UK10K	upper_UK_10K
+common_MAF_bin_1	5.01	7.05	5.00	7.08
+common_MAF_bin_2	7.05	9.82	7.08	9.78
+common_MAF_bin_3	9.82	13.09	9.78	13.05
+common_MAF_bin_4	13.09	17.08	13.05	16.95
+common_MAF_bin_5	17.08	21.47	16.95	21.39
+common_MAF_bin_6	21.47	26.48	21.39	26.37
+common_MAF_bin_7	26.48	31.90	26.37	31.85
+common_MAF_bin_8	31.90	37.73	31.85	37.66
+common_MAF_bin_9	37.73	43.87	37.66	43.76
+common_MAF_bin_10	43.87	50.00	43.76	50.00

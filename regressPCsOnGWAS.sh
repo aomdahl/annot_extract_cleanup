@@ -12,7 +12,7 @@ ANNOT=$2
 EXT=$3
 QUERY=$1
 TOPN=$4
-for i in `cat ${ANNOT}`; do
+for i in `cat ${QUERY}`; do
     t=`(basename $i| cut -f 1 -d "_")`
     echo $t
     Rscript /work-zfs/abattle4/ashton/prs_dev/prs_tools/annotation_analysis/top_annots_script.R  --sum_stats $i --annots ${ANNOT} --topn ${TOPN} --output ${t}.${EXT}

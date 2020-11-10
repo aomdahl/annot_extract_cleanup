@@ -110,9 +110,11 @@ dropped <- names(max_annots)[!(names(max_annots) %in% names(f_annots))]
 prop_nas <- apply(max_annots[, ..dropped], 2, function(x) sum(is.na(x)))/nrow(max_annots)
 dropped <- data.frame("dropped_annots" = dropped, "proportion_of_na" = prop_nas)
 
-
 numeric_annots <- selectNumeric(f_annots) %>% select(-Pos, -Chr)
-
+if("biogrid:id" %in% names(numeric_annots))
+{
+numeric_annots <- select(numeric_annots, -`biogrid:id`)
+}
 numeric_annots <- varClear(numeric_annots) %>% highCorClear(., args$r2_thresh, args$output)
 label_annots <- selectLabels(f_annots)
 write_tsv(numeric_annots, paste0(output_dir, "_numeric_annotations.tsv"))

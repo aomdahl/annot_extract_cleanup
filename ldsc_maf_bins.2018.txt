@@ -1,0 +1,16 @@
+bin	lower	upper
+Low-frequency_MAF_bin_1	0.0050	0.0076
+Low-frequency_MAF_bin_2	0.0076	0.0121
+Low-frequency_MAF_bin_3	0.0121	0.0193
+Low-frequency_MAF_bin_4	0.0193	0.0313
+Low-frequency_MAF_bin_5	0.0313	0.0500
+Common_MAF_bin_1	0.0500	0.0708
+Common_MAF_bin_2	0.0708	0.0978
+Common_MAF_bin_3	0.0978	0.1305
+Common_MAF_bin_4	0.1305	0.1695
+Common_MAF_bin_5	0.1695	0.2139
+Common_MAF_bin_6	0.2139	0.2637
+Common_MAF_bin_7	0.2637	0.3185
+Common_MAF_bin_8	0.3185	0.3766
+Common_MAF_bin_9	0.3766	0.4376
+Common_MAF_bin_10	0.4376	0.5000

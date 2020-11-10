@@ -71,7 +71,7 @@ true_pcs <- data.frame(cor(data.frame(pca_$x), annots_data))
 print("Correlation calculation complete")
 print(paste("Correlation matrix has dimensions",dim(true_pcs)[1], dim(true_pcs)[2]))
 
-npcs = 100 #Default value we have been using.
+npcs = args$num_svs  #Default value we have been using.
 #get the first one out to get the dimensions
 all_of_one_pc <- as.matrix(t(mapply(getPC, pcs_list_,  pc_num = 1)))
 nfeats <- dim(all_of_one_pc)[2]
